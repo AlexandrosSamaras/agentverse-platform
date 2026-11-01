@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    /* Sleek Black Theme with Blue Primary & Cyan Accent */
+    --background-start: 0 0% 4%;       /* Very dark grey for gradient start */
+    --background-end: 0 0% 6%;         /* Slightly lighter dark grey for gradient end */
+    --background: 0 0% 4%;             /* Solid very dark grey/almost black background */
+    --foreground: 210 20% 90%;         /* Light grey text */
+
+    --card: 0 0% 8%;                   /* Very dark grey card background */
+    --card-foreground: 210 20% 90%;
+
+    --popover: 0 0% 6%;                 /* Darker popover background */
+    --popover-foreground: 210 20% 90%;
+
+    --primary: 220 95% 60%;             /* Vibrant Blue - for main actions and glows */
+    --primary-foreground: 210 20% 95%;   /* Light text for contrast on blue buttons */
+    --primary-glow: hsl(var(--primary) / 0.6); /* Neon Blue Glow color for buttons */
+
+    --secondary: 210 15% 15%;           /* Darker grey for secondary elements */
+    --secondary-foreground: 210 20% 85%; /* Slightly softer light grey text on secondary */
+
+    --muted: 0 0% 7%;                   /* Darker muted background */
+    --muted-foreground: 210 15% 65%;     /* Softer gray text */
+
+    --accent: 180 90% 50%;              /* Vibrant Cyan for accents and hovers */
+    --accent-foreground: 210 20% 95%;     /* Light text on cyan accent */
+
+    --destructive: 0 70% 55%;           /* Red for destructive actions */
+    --destructive-foreground: 0 0% 100%;   /* White text on destructive */
+
+    --border: 0 0% 12%;                 /* Subtle dark grey border color */
+    --input: 0 0% 10%;                  /* Input field background/border */
+    --ring: 220 95% 70%;                /* Primary color for focus rings, slightly lighter blue */
+
+    --radius: 0.75rem;                   /* Slightly more rounded corners for elements */
+    --card-glow: hsl(var(--primary) / 0.6); /* Increased opacity for a more prominent neon blue card glow */
+
+    /* Chart colors - updated for the new theme */
+    --chart-1: hsl(var(--primary));
+    --chart-2: hsl(var(--accent)); /* Cyan */
+    --chart-3: 150 70% 50%; /* A distinct green */
+    --chart-4: 30 90% 60%;  /* A distinct orange */
+    --chart-5: 320 70% 60%; /* A distinct pink/magenta - kept for charts but not primary hover */
+
+    /* Sidebar variables - updated for black theme */
+    --sidebar-background: 0 0% 2%; 
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: hsl(var(--accent)); 
+    --sidebar-accent-foreground: hsl(var(--accent-foreground));
+    --sidebar-border: 0 0% 8%;
+    --sidebar-ring: hsl(var(--ring));
+
+    /* Variables for background image and vignette - using new black base */
+    /* --background-image-url: url('https://placehold.co/1920x1080.png');  */ /* Removed background image */
+    --background-raw-hsl: 0, 0%, 4%; /* HSL values of new --background */
+    --body-bg-overlay-color: hsla(var(--background-raw-hsl), 0.85); /* Slightly more opaque overlay for darker feel */
+    /* --vignette-color-start: hsla(var(--background-raw-hsl), 0.95); */ /* Darker edge of vignette - REMOVED */
+    /* --vignette-color-end: hsla(var(--background-raw-hsl), 0);   */ /* Fades to transparent towards center - REMOVED */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply text-foreground bg-background; /* Ensure solid background color is applied */
+    /* background-image: var(--background-image-url); Removed background image */
+    background-size: cover;
+    background-position: center center;
+    background-attachment: fixed;
+    position: relative; 
+    font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden; 
+  }
+
+  /* Overlay to darken the image and blend with the theme - still useful for solid bg for vignette */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-color: var(--body-bg-overlay-color);
+    z-index: -1; 
+  }
+
+  /* Vignette layer for darkened edges - REMOVED */
+  /* body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, var(--vignette-color-start) 0%, var(--vignette-color-end) 30%), 
+      linear-gradient(to left, var(--vignette-color-start) 0%, var(--vignette-color-end) 30%);  
+    background-repeat: no-repeat;
+    background-position: left center, right center; 
+    background-size: 35% 100%, 35% 100%; 
+    pointer-events: none; 
+    z-index: 0; 
+  } */
+}

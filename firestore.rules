@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidString(val, maxLen) {
+      return val is string && val.size() > 0 && val.size() <= maxLen;
+    }
+
+    // 1. Agents Marketplace Catalog
+    // Publicly readable; authenticated providers can create/update their own agents.
+    match /agents/{agentId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+                    && isValidString(request.resource.data.name, 100)
+                    && isValidString(request.resource.data.description, 3000)
+                    && request.resource.data.developerId == request.auth.uid;
+      allow update, delete: if isSignedIn()
+                            && resource.data.developerId == request.auth.uid;
+    }
+
+    // 2. Job Requests Board
+    // Publicly readable; validated job creation.
+    match /jobs/{jobId} {
+      allow read: if true;
+      allow create: if isValidString(request.resource.data.companyName, 120)
+                    && isValidString(request.resource.data.projectTitle, 160)
+                    && isValidString(request.resource.data.projectDescription, 3000)
+                    && request.resource.data.status == 'Open';
+      allow update, delete: if isSignedIn()
+                            && resource.data.ownerId == request.auth.uid;
+    }
+
+    // 3. Agent Reviews
+    // Publicly readable; ratings must be between 1 and 5.
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isValidString(request.resource.data.agentId, 128)
+                    && isValidString(request.resource.data.comment, 600)
+                    && request.resource.data.rating is number
+                    && request.resource.data.rating >= 1
+                    && request.resource.data.rating <= 5;
+      allow update, delete: if isSignedIn()
+                            && resource.data.userId == request.auth.uid;
+    }
+
+    // 4. User Profiles & Stripe Connect Payout Accounts
+    // Strictly isolated to the authenticated account owner.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // 5. Private Inquiries & Job Proposals
+    // Write-only for prospective clients/applicants; readable only by authenticated recipients.
+    match /inquiries/{inquiryId} {
+      allow create: if isValidString(request.resource.data.message, 2500);
+      allow read: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    match /jobApplications/{applicationId} {
+      allow create: if isValidString(request.resource.data.agentName, 150)
+                    && isValidString(request.resource.data.coverLetter, 2500);
+      allow read: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    match /jobInquiries/{inquiryId} {
+      allow create: if isValidString(request.resource.data.message, 2500);
+      allow read: if isSignedIn();
+      allow update, delete: if false;
+    }
+  }
+}
