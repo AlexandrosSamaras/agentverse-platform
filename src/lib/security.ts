@@ -132,3 +132,136 @@ export function resolveServerSideAgentPrice(
 
   return Math.min(parsed, MAX_PRICE_USD);
 }
+
+/**
+ * AgentVerse Control Plane (ACP) — DLP & Guardrail Firewall
+ * Scans incoming prompts for:
+ *  1. Direct & indirect Prompt Injection / Jailbreak attempts
+ *  2. Sensitive PII / Credentials (emails, SSNs, credit cards, API keys, phone numbers)
+ *  3. High-risk state-changing operations (for Human-in-the-Loop gating)
+ */
+export function inspectAndRedactPrompt(
+  rawPrompt: string,
+  enablePiiRedaction: boolean = true
+): {
+  passed: boolean;
+  promptInjectionDetected: boolean;
+  promptInjectionReason?: string;
+  piiRedactedCount: number;
+  piiTypesFound: string[];
+  sanitizedPrompt: string;
+  highRiskActionDetected: boolean;
+  detectedActions: string[];
+} {
+  const cleanText = sanitizePlainText(rawPrompt, 4000);
+
+  // 1. Prompt Injection / Jailbreak heuristics
+  const injectionPatterns: { regex: RegExp; reason: string }[] = [
+    {
+      regex: /\b(ignore|disregard|override|forget)\b.{0,40}\b(previous|prior|above|system|all)\b.{0,30}\b(instructions?|prompts?|rules?|guardrails?)\b/i,
+      reason: "Attempt to override system instructions ('ignore previous instructions').",
+    },
+    {
+      regex: /\b(reveal|print|dump|output|leak|exfiltrate)\b.{0,40}\b(system\s*prompt|secret\s*key|api\s*key|env|environment\s*variables|credentials?)\b/i,
+      reason: "Attempt to exfiltrate system prompts or credentials.",
+    },
+    {
+      regex: /\b(you\s+are\s+now\s+DAN|do\s+anything\s+now|developer\s+mode\s+enabled|jailbreak)\b/i,
+      reason: "Known jailbreak persona pattern detected.",
+    },
+    {
+      regex: /(?:https?:\/\/|curl\s+|wget\s+|fetch\s*\().{0,60}(?:attacker|evil|webhook\.site|ngrok|burpcollaborator|requestbin)/i,
+      reason: "Suspicious data exfiltration endpoint detected in prompt.",
+    },
+  ];
+
+  let promptInjectionDetected = false;
+  let promptInjectionReason: string | undefined;
+
+  for (const item of injectionPatterns) {
+    if (item.regex.test(cleanText)) {
+      promptInjectionDetected = true;
+      promptInjectionReason = item.reason;
+      break;
+    }
+  }
+
+  // 2. DLP PII & Secret Redaction
+  let sanitizedPrompt = cleanText;
+  let piiRedactedCount = 0;
+  const piiTypesSet = new Set<string>();
+
+  const piiRules: { name: string; regex: RegExp; replacement: string }[] = [
+    {
+      name: "API_SECRET_KEY",
+      regex: /\b(sk_(?:live|test)_[0-9a-zA-Z]{10,}|AIza[0-9A-Za-z\-_]{20,}|ghp_[0-9A-Za-z]{20,}|xox[baprs]-[0-9A-Za-z\-]{10,})\b/g,
+      replacement: "[REDACTED_API_KEY]",
+    },
+    {
+      name: "CREDIT_CARD",
+      regex: /\b(?:\d[ -]*?){13,16}\b/g,
+      replacement: "[REDACTED_PAYMENT_CARD]",
+    },
+    {
+      name: "US_SSN",
+      regex: /\b\d{3}-\d{2}-\d{4}\b/g,
+      replacement: "[REDACTED_SSN]",
+    },
+    {
+      name: "EMAIL_ADDRESS",
+      regex: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
+      replacement: "[REDACTED_EMAIL]",
+    },
+    {
+      name: "PHONE_NUMBER",
+      regex: /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g,
+      replacement: "[REDACTED_PHONE]",
+    },
+  ];
+
+  for (const rule of piiRules) {
+    const matches = sanitizedPrompt.match(rule.regex);
+    if (matches && matches.length > 0) {
+      piiTypesSet.add(rule.name);
+      if (enablePiiRedaction) {
+        piiRedactedCount += matches.length;
+        sanitizedPrompt = sanitizedPrompt.replace(rule.regex, rule.replacement);
+      }
+    }
+  }
+
+  // 3. High-Risk State-Changing Action Detection (for HITL Governance)
+  const highRiskRules: { label: string; regex: RegExp }[] = [
+    {
+      label: "financial_transfer_or_refund",
+      regex: /\b(wire\s+transfer|issue\s+refund|refund\s+\$?\d+|charge\s+card|send\s+payment|payout)\b/i,
+    },
+    {
+      label: "destructive_database_or_repo_write",
+      regex: /\b(drop\s+table|delete\s+all|truncate|force\s+push|merge\s+pull\s+request|production\s+deploy|terminate\s+instance)\b/i,
+    },
+    {
+      label: "mass_external_communication",
+      regex: /\b(email\s+all\s+customers|blast\s+campaign|publish\s+to\s+production|send\s+contract)\b/i,
+    },
+  ];
+
+  const detectedActions: string[] = [];
+  for (const rule of highRiskRules) {
+    if (rule.regex.test(cleanText)) {
+      detectedActions.push(rule.label);
+    }
+  }
+
+  return {
+    passed: !promptInjectionDetected,
+    promptInjectionDetected,
+    promptInjectionReason,
+    piiRedactedCount,
+    piiTypesFound: Array.from(piiTypesSet),
+    sanitizedPrompt,
+    highRiskActionDetected: detectedActions.length > 0,
+    detectedActions,
+  };
+}
+

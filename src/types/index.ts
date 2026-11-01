@@ -100,6 +100,59 @@ export interface Agent {
   rating: number;
   reviewsCount: number;
   tags?: string[];
+
+  // AgentVerse Control Plane (ACP) Runtime & Governance Config
+  systemPrompt?: string;
+  endpointUrl?: string;
+  samplePrompts?: string[];
+}
+
+export type ExecutionStatus =
+  | "completed"
+  | "blocked_guardrail"
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "error";
+
+export interface GuardrailScanResult {
+  passed: boolean;
+  promptInjectionDetected: boolean;
+  promptInjectionReason?: string;
+  piiRedactedCount: number;
+  piiTypesFound: string[];
+  sanitizedPrompt: string;
+  highRiskActionDetected: boolean;
+  detectedActions: string[];
+}
+
+export interface AgentExecutionLog {
+  id: string;
+  agentId: string;
+  agentName: string;
+  developer: string;
+  userId: string;
+  taskPrompt: string;
+  sanitizedPrompt: string;
+  autonomyPolicy: AutonomyLevel;
+  piiRedactionEnabled: boolean;
+  status: ExecutionStatus;
+  guardrail: GuardrailScanResult;
+  output?: {
+    summary: string;
+    reasoningSteps: string[];
+    proposedActions: {
+      tool: string;
+      operation: string;
+      riskLevel: "low" | "medium" | "high";
+      payloadPreview: string;
+    }[];
+    deliverable: string;
+  };
+  latencyMs: number;
+  estimatedTokens: number;
+  costUsd: number;
+  createdAt: string;
 }
 
 // ...

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { AgentRating } from '@/components/agents/AgentRating';
+import { AgentSandboxConsole } from '@/components/agents/AgentSandboxConsole';
 import { UserAvatar } from '@/components/shared/UserAvatar';
 import {
   Briefcase, DollarSign, MessageSquare, Download, Layers, ShieldCheck, CalendarDays, Zap, BarChart3, Users, Edit, Star, BrainCircuit,
@@ -555,6 +556,9 @@ function AgentProfileContent() {
           </aside>
         </CardContent>
       </Card>
+
+      {/* Interactive Agent Sandbox & Unified Control Plane */}
+      <AgentSandboxConsole agent={agent} />
 
       <Card className="shadow-xl border-border/60">
         <CardHeader>

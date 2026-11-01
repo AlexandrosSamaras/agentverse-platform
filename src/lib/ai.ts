@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type ModelParams } from "@google/generative-ai";
 
 const getApiKey = (): string => {
     const key = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
@@ -11,7 +11,10 @@ const getApiKey = (): string => {
 };
 
 // Lazily initialize the GoogleGenerativeAI client so importing this file never crashes at build/module-load time
-export const getModel = (modelName: string = "gemini-2.0-flash") => {
+export const getModel = (modelOrParams: string | ModelParams = "gemini-2.0-flash") => {
     const genAI = new GoogleGenerativeAI(getApiKey());
-    return genAI.getGenerativeModel({ model: modelName });
+    if (typeof modelOrParams === "string") {
+        return genAI.getGenerativeModel({ model: modelOrParams });
+    }
+    return genAI.getGenerativeModel(modelOrParams);
 };

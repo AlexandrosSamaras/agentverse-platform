@@ -54,6 +54,8 @@ export default function ListAgentPage() {
   const [startingPrice, setStartingPrice] = useState("$99/mo");
   const [tierFeatures, setTierFeatures] = useState("Unlimited API requests, 24/7 autonomous execution, Priority support");
   const [documentationLink, setDocumentationLink] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [endpointUrl, setEndpointUrl] = useState("");
   const [freeTrialAvailable, setFreeTrialAvailable] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -142,6 +144,8 @@ export default function ListAgentPage() {
       documentationLink: isSafeHttpUrl(documentationLink.trim())
         ? documentationLink.trim()
         : "https://docs.agentverse.ai",
+      systemPrompt: systemPrompt.trim() ? sanitizePlainText(systemPrompt, 2000) : undefined,
+      endpointUrl: isSafeHttpUrl(endpointUrl.trim()) ? endpointUrl.trim() : undefined,
       avatarUrl: "https://placehold.co/100x100.png",
       dataAiHint: "robot avatar",
       verified: false,
@@ -378,6 +382,36 @@ export default function ListAgentPage() {
                     placeholder="https://docs.youragent.ai"
                     value={documentationLink}
                     onChange={(e) => setDocumentationLink(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <h3 className="font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-primary" /> AgentVerse Control Plane (ACP) Runtime Config
+                </h3>
+                <div className="space-y-2">
+                  <Label htmlFor="system-prompt">
+                    Sandbox System Instructions / Persona Prompt (Optional)
+                  </Label>
+                  <Textarea
+                    id="system-prompt"
+                    rows={3}
+                    placeholder="Define how your agent should reason, what tools it uses, and its output format when invoked in the AgentVerse Sandbox..."
+                    value={systemPrompt}
+                    onChange={(e) => setSystemPrompt(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endpoint-url">
+                    External Webhook / MCP Server Endpoint (Optional)
+                  </Label>
+                  <Input
+                    id="endpoint-url"
+                    type="url"
+                    placeholder="https://api.youragent.ai/v1/invoke"
+                    value={endpointUrl}
+                    onChange={(e) => setEndpointUrl(e.target.value)}
                   />
                 </div>
               </div>
