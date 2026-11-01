@@ -11,7 +11,7 @@ const getApiKey = (): string => {
 };
 
 // Lazily initialize the GoogleGenerativeAI client so importing this file never crashes at build/module-load time
-export const getModel = (modelOrParams: string | ModelParams = "gemini-2.0-flash") => {
+export const getModel = (modelOrParams: string | ModelParams = "gemini-2.5-flash") => {
     const genAI = new GoogleGenerativeAI(getApiKey());
     if (typeof modelOrParams === "string") {
         return genAI.getGenerativeModel({ model: modelOrParams });

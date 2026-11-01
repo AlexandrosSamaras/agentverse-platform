@@ -8,6 +8,7 @@ import {
   checkRateLimit,
   getClientIp,
   inspectAndRedactPrompt,
+  isSafeHttpUrl,
   sanitizePlainText,
 } from "@/lib/security";
 import type { Agent, AgentExecutionLog, AutonomyLevel, ExecutionStatus } from "@/types";
@@ -168,46 +169,102 @@ Enforced Autonomy Policy: ${autonomyPolicy}
 Execute the user's task professionally and authentically as ${agent.name}.
 Produce realistic reasoningSteps, proposedActions (listing which tools/APIs you call and their riskLevel: 'low', 'medium', or 'high'), and a comprehensive, high-value deliverable.`;
 
-    const modelNames = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    const modelNames = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"];
     let parsedOutput: NonNullable<AgentExecutionLog["output"]> | null = null;
 
-    for (const modelName of modelNames) {
+    // 4a. If the provider configured an external remote webhook URL, proxy the sanitized payload first
+    if (agent.endpointUrl && isSafeHttpUrl(agent.endpointUrl)) {
       try {
-        const model = getModel({
-          model: modelName,
-          systemInstruction,
-          generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: executionResponseSchema,
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const webhookRes = await fetch(agent.endpointUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-AgentVerse-Control-Plane": "v1",
+            "X-AgentVerse-Agent-Id": agent.id,
+            "X-AgentVerse-Autonomy-Policy": autonomyPolicy,
           },
+          body: JSON.stringify({
+            agentId: agent.id,
+            sanitizedPrompt: guardrail.sanitizedPrompt,
+            autonomyPolicy,
+            piiRedactedCount: guardrail.piiRedactedCount,
+          }),
+          signal: controller.signal,
         });
+        clearTimeout(timeout);
 
-        const result = await model.generateContent(
-          `Execute the following sanitized client task:\n\n"${guardrail.sanitizedPrompt}"`
-        );
-        const text = result.response.text();
-        const json = JSON.parse(text);
-        if (json && json.summary && json.deliverable) {
-          parsedOutput = {
-            summary: json.summary,
-            reasoningSteps: Array.isArray(json.reasoningSteps) ? json.reasoningSteps : [],
-            proposedActions: Array.isArray(json.proposedActions)
-              ? json.proposedActions.map((act: any) => ({
-                  tool: String(act.tool || "AgentCore"),
-                  operation: String(act.operation || "execute"),
-                  riskLevel:
-                    act.riskLevel === "high" || act.riskLevel === "medium"
-                      ? act.riskLevel
-                      : "low",
-                  payloadPreview: String(act.payloadPreview || "{}"),
-                }))
-              : [],
-            deliverable: json.deliverable,
-          };
-          break;
+        if (webhookRes.ok) {
+          const remoteJson = await webhookRes.json();
+          if (remoteJson && (remoteJson.deliverable || remoteJson.summary || remoteJson.output)) {
+            parsedOutput = {
+              summary: String(
+                remoteJson.summary ||
+                  `Remote webhook (${agent.endpointUrl}) executed task for ${agent.name}.`
+              ),
+              reasoningSteps: Array.isArray(remoteJson.reasoningSteps)
+                ? remoteJson.reasoningSteps
+                : ["Forwarded sanitized payload to external provider webhook.", "Received structured response from remote agent endpoint."],
+              proposedActions: Array.isArray(remoteJson.proposedActions)
+                ? remoteJson.proposedActions
+                : [
+                    {
+                      tool: "External Provider Webhook",
+                      operation: "POST " + agent.endpointUrl,
+                      riskLevel: guardrail.highRiskActionDetected ? "high" : "low",
+                      payloadPreview: JSON.stringify({ status: webhookRes.status }),
+                    },
+                  ],
+              deliverable: String(remoteJson.deliverable || remoteJson.output || JSON.stringify(remoteJson)),
+            };
+          }
         }
-      } catch (err) {
-        console.warn(`Agent runtime model ${modelName} failed, trying fallback:`, err);
+      } catch (webhookErr) {
+        console.warn(`External agent webhook (${agent.endpointUrl}) unreachable, falling back to hosted Gemini runtime:`, webhookErr);
+      }
+    }
+
+    // 4b. Hosted AgentVerse Runtime (Gemini 2.5 Flash / Pro hydrated with the agent's persona & tool specs)
+    if (!parsedOutput) {
+      for (const modelName of modelNames) {
+        try {
+          const model = getModel({
+            model: modelName,
+            systemInstruction,
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: executionResponseSchema,
+            },
+          });
+
+          const result = await model.generateContent(
+            `Execute the following sanitized client task:\n\n"${guardrail.sanitizedPrompt}"`
+          );
+          const text = result.response.text();
+          const json = JSON.parse(text);
+          if (json && json.summary && json.deliverable) {
+            parsedOutput = {
+              summary: json.summary,
+              reasoningSteps: Array.isArray(json.reasoningSteps) ? json.reasoningSteps : [],
+              proposedActions: Array.isArray(json.proposedActions)
+                ? json.proposedActions.map((act: any) => ({
+                    tool: String(act.tool || "AgentCore"),
+                    operation: String(act.operation || "execute"),
+                    riskLevel:
+                      act.riskLevel === "high" || act.riskLevel === "medium"
+                        ? act.riskLevel
+                        : "low",
+                    payloadPreview: String(act.payloadPreview || "{}"),
+                  }))
+                : [],
+              deliverable: json.deliverable,
+            };
+            break;
+          }
+        } catch (err) {
+          console.warn(`Agent runtime model ${modelName} failed, trying fallback:`, err);
+        }
       }
     }
 
