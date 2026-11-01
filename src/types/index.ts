@@ -152,6 +152,7 @@ export interface AgentExecutionLog {
   latencyMs: number;
   estimatedTokens: number;
   costUsd: number;
+  modelUsed?: string;
   createdAt: string;
 }
 

@@ -57,6 +57,7 @@ export function AgentSandboxConsole({ agent }: AgentSandboxConsoleProps) {
   const [autonomyPolicy, setAutonomyPolicy] = useState<AutonomyLevel>(
     agent.autonomyLevel || "Assisted Decision-Making"
   );
+  const [preferredModel, setPreferredModel] = useState<string>("gemini-3.8-flash");
   const [isRunning, setIsRunning] = useState(false);
   const [executionResult, setExecutionResult] = useState<AgentExecutionLog | null>(null);
   const [showApiSnippet, setShowApiSnippet] = useState(false);
@@ -76,6 +77,7 @@ export function AgentSandboxConsole({ agent }: AgentSandboxConsoleProps) {
           taskPrompt,
           piiRedactionEnabled,
           autonomyPolicy,
+          preferredModel,
           userId: user?.uid || "sandbox-guest",
         }),
       });
@@ -243,7 +245,7 @@ export function AgentSandboxConsole({ agent }: AgentSandboxConsoleProps) {
             />
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-4 p-4 rounded-lg border bg-muted/30 items-center">
+          <div className="grid sm:grid-cols-4 gap-4 p-4 rounded-lg border bg-muted/30 items-center">
             <div className="flex items-center justify-between sm:justify-start gap-3">
               <Switch
                 id="pii-redaction"
@@ -255,9 +257,35 @@ export function AgentSandboxConsole({ agent }: AgentSandboxConsoleProps) {
                   <Lock className="h-3.5 w-3.5 text-primary" /> DLP PII Redaction
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Masks emails, cards, SSNs & API keys before agent sees them
+                  Masks emails, cards, SSNs & API keys
                 </p>
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Frontier Model Engine</Label>
+              <Select
+                value={preferredModel}
+                onValueChange={(v) => setPreferredModel(v)}
+              >
+                <SelectTrigger className="h-9 text-xs font-mono">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gemini-3.8-flash" className="text-xs font-mono">
+                    gemini-3.8-flash (Latest Flagship)
+                  </SelectItem>
+                  <SelectItem value="gemini-3.1-pro-preview" className="text-xs font-mono">
+                    gemini-3.1-pro-preview (Deep Reasoning)
+                  </SelectItem>
+                  <SelectItem value="gemini-3-flash-preview" className="text-xs font-mono">
+                    gemini-3-flash-preview (Balanced)
+                  </SelectItem>
+                  <SelectItem value="gemini-3.1-flash-lite-preview" className="text-xs font-mono">
+                    gemini-3.1-flash-lite (Ultra-Fast)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1">
@@ -354,7 +382,9 @@ export function AgentSandboxConsole({ agent }: AgentSandboxConsoleProps) {
               </div>
 
               <div className="p-3 rounded-md border bg-background/60">
-                <span className="text-xs text-muted-foreground block">Telemetry & Metering</span>
+                <span className="text-xs text-muted-foreground block">
+                  Telemetry ({executionResult.modelUsed || preferredModel})
+                </span>
                 <div className="font-semibold text-sm mt-1 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-primary" />
                   <span>{executionResult.latencyMs}ms</span>

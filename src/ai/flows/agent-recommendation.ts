@@ -57,7 +57,7 @@ export async function agentRecommendation(input: AgentRecommendationInput): Prom
     }
   `;
 
-  const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"];
+  const modelsToTry = ["gemini-3.8-flash", "gemini-3.1-pro-preview", "gemini-3-flash-preview", "gemini-3.1-flash-lite-preview"];
 
   for (const modelName of modelsToTry) {
     try {

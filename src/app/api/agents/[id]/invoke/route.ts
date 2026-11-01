@@ -169,8 +169,22 @@ Enforced Autonomy Policy: ${autonomyPolicy}
 Execute the user's task professionally and authentically as ${agent.name}.
 Produce realistic reasoningSteps, proposedActions (listing which tools/APIs you call and their riskLevel: 'low', 'medium', or 'high'), and a comprehensive, high-value deliverable.`;
 
-    const modelNames = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-flash-latest"];
+    const allowedModels = [
+      "gemini-3.8-flash",
+      "gemini-3.1-pro-preview",
+      "gemini-3-flash-preview",
+      "gemini-3.1-flash-lite-preview",
+    ];
+    const requestedModel =
+      typeof body.preferredModel === "string" && allowedModels.includes(body.preferredModel)
+        ? body.preferredModel
+        : "gemini-3.8-flash";
+    const modelNames = [
+      requestedModel,
+      ...allowedModels.filter((m) => m !== requestedModel),
+    ];
     let parsedOutput: NonNullable<AgentExecutionLog["output"]> | null = null;
+    let modelUsed = "external-webhook";
 
     // 4a. If the provider configured an external remote webhook URL, proxy the sanitized payload first
     if (agent.endpointUrl && isSafeHttpUrl(agent.endpointUrl)) {
@@ -225,7 +239,7 @@ Produce realistic reasoningSteps, proposedActions (listing which tools/APIs you 
       }
     }
 
-    // 4b. Hosted AgentVerse Runtime (Gemini 2.5 Flash / Pro hydrated with the agent's persona & tool specs)
+    // 4b. Hosted AgentVerse Runtime (Gemini 3.8 Flash / Gemini 3.1 Pro hydrated with the agent's persona & tool specs)
     if (!parsedOutput) {
       for (const modelName of modelNames) {
         try {
@@ -244,6 +258,7 @@ Produce realistic reasoningSteps, proposedActions (listing which tools/APIs you 
           const text = result.response.text();
           const json = JSON.parse(text);
           if (json && json.summary && json.deliverable) {
+            modelUsed = modelName;
             parsedOutput = {
               summary: json.summary,
               reasoningSteps: Array.isArray(json.reasoningSteps) ? json.reasoningSteps : [],
@@ -328,6 +343,7 @@ Produce realistic reasoningSteps, proposedActions (listing which tools/APIs you 
       latencyMs,
       estimatedTokens,
       costUsd,
+      modelUsed,
       createdAt: new Date().toISOString(),
     };
 
